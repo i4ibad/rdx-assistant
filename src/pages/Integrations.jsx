@@ -19,9 +19,13 @@ import { connectorCategories, connectors, shopifyDataEntities } from '../data/mo
 const categoryMap = {
   'All Connectors': null,
   'E-Commerce Stores': 'E-Commerce Stores',
+  'E-Commerce Stores(Shopify/Amazon)': 'E-Commerce Stores',
   'OMS & Inventory': 'OMS & Inventory',
+  'OMS & Inventory(Linnworks)': 'OMS & Inventory',
   'Logistics & Couriers': 'Logistics & Couriers',
-  'Helpdesk & Chat': 'Helpdesk & Chat'
+  'Logistics & Couriers(CTS/Ship24/Yodel)': 'Logistics & Couriers',
+  'Helpdesk & Chat': 'Helpdesk & Chat',
+  'Helpdesk & Chat(eDesk/LiveChat/Zendesk)': 'Helpdesk & Chat'
 }
 
 // Exact icon + accent color per connector, sampled from the live site.
@@ -227,8 +231,8 @@ export default function Integrations() {
   const [activeConnector, setActiveConnector] = useState(null)
 
   const filtered = useMemo(() => {
-    const category = categoryMap[activeCategory]
-    if (!category) return connectors
+    if (!activeCategory || activeCategory === 'All Connectors') return connectors
+    const category = categoryMap[activeCategory] ?? activeCategory.split('(')[0].trim()
     return connectors.filter((c) => c.category === category)
   }, [activeCategory])
 

@@ -1,13 +1,17 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import {
+  Check,
   Database,
   FileText,
+  FileUp,
   Globe,
   HelpCircle,
+  Loader2,
   Search,
   Sparkles,
   Trash2,
-  Upload
+  Upload,
+  X
 } from 'lucide-react'
 import {
   knowledgeBaseStats,
@@ -41,14 +45,12 @@ function ToggleSwitch({ checked, onChange, label }) {
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-        checked ? 'bg-brand-600' : 'bg-slate-200'
-      }`}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-brand-600' : 'bg-slate-200'
+        }`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
+        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'
+          }`}
       />
     </button>
   )
@@ -75,9 +77,8 @@ function SourceRow({ source, onToggle, onDelete }) {
       </td>
       <td className="px-5 py-3.5">
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-            statusStyles[source.status]
-          }`}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusStyles[source.status]
+            }`}
         >
           {source.status === 'processing' ? (
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
@@ -109,12 +110,352 @@ function SourceRow({ source, onToggle, onDelete }) {
   )
 }
 
+function CrawlWebsiteModal({ open, onClose, onCrawlComplete }) {
+  const [url, setUrl] = useState('')
+  const [crawlDepth, setCrawlDepth] = useState('all')
+  const [crawling, setCrawling] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!open) return null
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    let trimmed = url.trim()
+    if (!trimmed) {
+      setError('Please enter a valid website URL')
+      return
+    }
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      trimmed = `https://${trimmed}`
+    }
+    setError('')
+    setCrawling(true)
+
+    const randomVectors = Math.floor(Math.random() * 800) + 1200
+    setTimeout(() => {
+      onCrawlComplete(
+        {
+          id: Date.now(),
+          name: crawlDepth === 'all' ? `${trimmed}/*` : trimmed,
+          type: 'Website',
+          vectorCount: `${randomVectors.toLocaleString()} vectors`,
+          status: 'processing',
+          enabled: true,
+          lastUpdated: 'Just now'
+        },
+        randomVectors
+      )
+      setCrawling(false)
+      setUrl('')
+      onClose()
+    }, 1200)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-900/40 animate-fade-in"
+        onClick={() => !crawling && onClose()}
+      />
+      <div className="relative z-10 w-full max-w-lg animate-scale-in overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-popover">
+        <div className="mb-5 flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-200 bg-purple-50 text-purple-600">
+              <Globe size={20} />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Crawl Website URL</h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={crawling}
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+              Website URL / Domain
+            </label>
+            <div className="relative">
+              <Globe
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value)
+                  if (error) setError('')
+                }}
+                disabled={crawling}
+                placeholder="https://docs.yourstore.com"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+            {error && <p className="mt-1 text-xs text-rose-500">{error}</p>}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Our crawler will extract all publicly accessible subpages and FAQs automatically.
+          </p>
+          <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3">
+            <button
+              type="button"
+              disabled={crawling}
+              onClick={onClose}
+              className="btn-secondary !py-2 !text-xs"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={crawling || !url.trim()}
+              className="btn-primary !py-2 !text-xs"
+            >
+              {crawling ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Crawling...
+                </>
+              ) : (
+                <>
+                  <Globe size={14} />
+                  Start Crawling
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function UploadDocumentModal({ open, onClose, onUploadComplete }) {
+  const [file, setFile] = useState(null)
+  const [docName, setDocName] = useState('')
+  const [docType, setDocType] = useState('Document')
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState('')
+  const fileInputRef = useRef(null)
+
+  if (!open) return null
+
+  function handleFileChange(e) {
+    const selected = e.target.files?.[0]
+    if (selected) {
+      setFile(selected)
+      setError('')
+      if (!docName) {
+        setDocName(selected.name)
+      }
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    const dropped = e.dataTransfer.files?.[0]
+    if (dropped) {
+      setFile(dropped)
+      setError('')
+      if (!docName) {
+        setDocName(dropped.name)
+      }
+    }
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (!file && !docName.trim()) {
+      setError('Please select a file or provide a document name')
+      return
+    }
+
+    setUploading(true)
+    setProgress(20)
+
+    setTimeout(() => setProgress(60), 400)
+    setTimeout(() => setProgress(90), 800)
+    setTimeout(() => {
+      setProgress(100)
+      const randomVectors = Math.floor(Math.random() * 900) + 650
+      onUploadComplete(
+        {
+          id: Date.now(),
+          name: docName.trim() || file?.name || 'Knowledge_Doc.pdf',
+          type: docType,
+          vectorCount: `${randomVectors.toLocaleString()} vectors`,
+          status: 'processing',
+          enabled: true,
+          lastUpdated: 'Just now'
+        },
+        randomVectors
+      )
+      setUploading(false)
+      setFile(null)
+      setDocName('')
+      setProgress(0)
+      onClose()
+    }, 1300)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-900/40 animate-fade-in"
+        onClick={() => !uploading && onClose()}
+      />
+      <div className="relative z-10 w-full max-w-lg animate-scale-in overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-popover">
+        <div className="mb-5 flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-600">
+              <Upload size={20} />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Upload Knowledge Document</h2>
+              <p className="text-xs text-slate-500">
+                Upload PDFs, DOCX, or text files to index into vector search
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".pdf,.doc,.docx,.txt,.csv"
+            className="hidden"
+          />
+
+          {!file ? (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 text-center transition-all hover:border-brand-400 hover:bg-brand-50/20"
+            >
+              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                <FileUp size={22} />
+              </div>
+              <p className="text-xs font-semibold text-slate-800">
+                Click to browse or drag and drop document
+              </p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                PDF, DOCX, TXT, or CSV (up to 25MB)
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-xl border border-brand-200 bg-brand-50/40 p-3.5">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-xs font-semibold text-slate-800">{file.name}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {(file.size / 1024).toFixed(1)} KB • Ready for indexing
+                  </p>
+                </div>
+              </div>
+              {!uploading && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFile(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+          )}
+          {uploading ? (
+            <div className="space-y-2 rounded-xl border border-brand-100 bg-brand-50/60 p-3.5">
+              <div className="flex items-center justify-between text-xs font-semibold text-brand-700">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 size={13} className="animate-spin text-brand-600" />
+                  {progress < 40
+                    ? 'Uploading & extracting text...'
+                    : progress < 80
+                      ? 'Chunking into 512-token segments...'
+                      : 'Generating OpenAI vector embeddings...'}
+                </span>
+                <span className="font-mono">{progress}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-200/60">
+                <div
+                  className="h-full bg-brand-600 transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={onClose}
+              className="btn-secondary !py-2 !text-xs"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={uploading || (!file && !docName.trim())}
+              className="btn-primary !py-2 !text-xs"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Indexing...
+                </>
+              ) : (
+                <>
+                  <Upload size={14} />
+                  Upload &amp; Index
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function KnowledgeBase() {
   const [sources, setSources] = useState(initialSources)
   const [sourceSearch, setSourceSearch] = useState('')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState(null)
   const [searching, setSearching] = useState(false)
+
+  const [crawlModalOpen, setCrawlModalOpen] = useState(false)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [totalEmbeddings, setTotalEmbeddings] = useState(
+    parseInt(knowledgeBaseStats.totalEmbeddings.replace(/,/g, ''), 10) || 18670
+  )
+  const [notification, setNotification] = useState('')
 
   const filteredSources = useMemo(() => {
     if (!sourceSearch.trim()) return sources
@@ -131,6 +472,30 @@ export default function KnowledgeBase() {
 
   function deleteSource(id) {
     setSources((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  function handleCrawlComplete(newSource, vectorCountNum) {
+    setSources((prev) => [newSource, ...prev])
+    setTotalEmbeddings((prev) => prev + vectorCountNum)
+    setNotification(`Website source "${newSource.name}" queued and crawling started.`)
+    setTimeout(() => {
+      setSources((prev) =>
+        prev.map((s) => (s.id === newSource.id ? { ...s, status: 'ready' } : s))
+      )
+    }, 3500)
+    setTimeout(() => setNotification(''), 5000)
+  }
+
+  function handleUploadComplete(newSource, vectorCountNum) {
+    setSources((prev) => [newSource, ...prev])
+    setTotalEmbeddings((prev) => prev + vectorCountNum)
+    setNotification(`Document "${newSource.name}" uploaded and indexed successfully.`)
+    setTimeout(() => {
+      setSources((prev) =>
+        prev.map((s) => (s.id === newSource.id ? { ...s, status: 'ready' } : s))
+      )
+    }, 3500)
+    setTimeout(() => setNotification(''), 5000)
   }
 
   function runSearch(event) {
@@ -154,7 +519,7 @@ export default function KnowledgeBase() {
               RAG Vector Index
             </span>
             <span className="text-sm text-slate-500">
-              {knowledgeBaseStats.totalEmbeddings} Total Embeddings
+              {totalEmbeddings.toLocaleString()} Total Embeddings
             </span>
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -167,16 +532,40 @@ export default function KnowledgeBase() {
         </div>
 
         <div className="flex shrink-0 gap-2.5">
-          <button type="button" className="btn-secondary">
+          <button
+            type="button"
+            onClick={() => setCrawlModalOpen(true)}
+            className="btn-secondary"
+          >
             <Globe size={15} />
             Crawl Website URL
           </button>
-          <button type="button" className="btn-primary">
+          <button
+            type="button"
+            onClick={() => setUploadModalOpen(true)}
+            className="btn-primary"
+          >
             <Upload size={15} />
             Upload Document
           </button>
         </div>
       </div>
+
+      {notification ? (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <Check size={14} className="shrink-0 text-emerald-600" />
+            <span className="font-medium">{notification}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification('')}
+            className="rounded-md p-1 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ) : null}
 
       {/* Interactive Vector Search Simulator */}
       <div className="card p-5 sm:p-6">
@@ -287,6 +676,17 @@ export default function KnowledgeBase() {
           </table>
         </div>
       </div>
+      
+      <CrawlWebsiteModal
+        open={crawlModalOpen}
+        onClose={() => setCrawlModalOpen(false)}
+        onCrawlComplete={handleCrawlComplete}
+      />
+      <UploadDocumentModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUploadComplete={handleUploadComplete}
+      />
     </div>
   )
 }
